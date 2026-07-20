@@ -1,0 +1,70 @@
+import streamlit as st
+
+def load_css():
+    st.markdown("""
+<style>
+:root{
+ --primary:#67c46a;
+ --primary-dark:#45a049;
+ --bg:#f5fff2;
+ --card:#ffffff;
+ --text:#263238;
+ --shadow:0 8px 24px rgba(0,0,0,.08);
+}
+.stApp{background:linear-gradient(#f8fff5,#eef9ea);}
+.block-container{padding-top:1rem;max-width:1200px;}
+.idea-card{
+ background:var(--card);
+ border-radius:24px;
+ padding:20px;
+ box-shadow:var(--shadow);
+ margin-bottom:16px;
+}
+.header-card{
+ background:linear-gradient(135deg,#7ddf8a,#a8ef90);
+ border-radius:28px;
+ padding:24px;
+ color:white;
+ box-shadow:var(--shadow);
+ margin-bottom:20px;
+}
+.title{font-size:34px;font-weight:800;}
+.subtitle{opacity:.95;margin-top:6px;}
+.level{font-size:24px;font-weight:700;margin-top:14px;}
+.xp{margin-top:4px;font-weight:600;}
+.stButton>button{
+ width:100%;
+ border:none;
+ border-radius:18px;
+ background:var(--primary);
+ color:white;
+ padding:.8rem;
+ font-weight:700;
+ transition:.2s;
+}
+.stButton>button:hover{
+ background:var(--primary-dark);
+ transform:translateY(-2px);
+}
+div[data-testid="stMetric"]{
+ background:white;
+ border-radius:18px;
+ padding:10px;
+ box-shadow:var(--shadow);
+}
+div[data-testid="stChatMessage"]{
+ border-radius:18px;
+ box-shadow:var(--shadow);
+}
+section[data-testid="stSidebar"]{
+ background:#eaf8e7;
+}
+.empty-card{
+ background:white;
+ border-radius:20px;
+ padding:30px;
+ text-align:center;
+ box-shadow:var(--shadow);
+}
+</style>
+""", unsafe_allow_html=True)
