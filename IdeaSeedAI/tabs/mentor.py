@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from openai import OpenAI
 
 from database import db
@@ -55,10 +56,7 @@ def initialize_mentor_state():
 
 def get_openai_client():
 
-    api_key = st.session_state.get(
-        "openai_api_key",
-        ""
-    ).strip()
+    api_key = get_active_api_key()
 
     if not api_key:
         return None
@@ -68,11 +66,55 @@ def get_openai_client():
     )
 
 
+def get_shared_api_key():
+
+    env_key = os.getenv("OPENAI_API_KEY", "").strip()
+
+    if env_key:
+        return env_key
+
+    try:
+        return str(
+            st.secrets.get("OPENAI_API_KEY", "")
+        ).strip()
+    except Exception:
+        return ""
+
+
+def get_active_api_key():
+
+    personal_key = st.session_state.get(
+        "openai_api_key",
+        ""
+    ).strip()
+
+    return personal_key or get_shared_api_key()
+
+
+def has_api_key():
+
+    return bool(get_active_api_key())
+
+
 # ============================================================
 # API 키 입력 화면
 # ============================================================
 
 def render_api_key_panel():
+
+    if get_shared_api_key():
+
+        section(
+            "AI 연구조교 이용 안내",
+            "🔑"
+        )
+
+        success_card(
+            "테스트용 공용 API 키가 연결되어 있습니다. "
+            "학생은 별도의 API 키를 입력하지 않아도 됩니다."
+        )
+
+        return
 
     section(
         "내 OpenAI API 키",
@@ -374,9 +416,7 @@ def render_quick_questions(
                 question,
                 key=f"quick_question_{index}",
                 use_container_width=True,
-                disabled=not bool(
-                    st.session_state.openai_api_key
-                )
+                    disabled=not has_api_key()
             ):
 
                 process_question(
@@ -396,7 +436,7 @@ def process_question(
     chat_history
 ):
 
-    if not st.session_state.openai_api_key:
+    if not has_api_key():
 
         error_card(
             "먼저 자신의 OpenAI API 키를 입력해 주세요."
@@ -509,9 +549,7 @@ def render():
 
     prompt = st.chat_input(
         "연구조교에게 질문해 보세요.",
-        disabled=not bool(
-            st.session_state.openai_api_key
-        )
+        disabled=not has_api_key()
     )
 
     if prompt:
