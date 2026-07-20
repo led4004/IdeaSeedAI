@@ -1,4 +1,7 @@
+import html
 import io
+import re
+from datetime import datetime
 
 import streamlit as st
 from PIL import Image
@@ -244,6 +247,86 @@ def render_saved_attachments(note):
                     st.rerun()
 
 
+def _safe_download_name(value):
+    name = re.sub(r"[^0-9A-Za-z가-힣._-]+", "_", value.strip())
+    return name.strip("._") or "research_note"
+
+
+def _paragraph(value):
+    text = html.escape(value or "").replace("\n", "<br>")
+    return text or "<span class=\"empty\">작성된 내용이 없습니다.</span>"
+
+
+def build_research_note_html(note, topic):
+    ai_section = ""
+    if note.get("include_ai"):
+        messages = []
+        for chat in db.get_chat(int(topic["id"])):
+            speaker = "나의 질문" if chat.get("role") == "user" else "AI 연구조교"
+            messages.append(
+                f"<div class='chat'><strong>{speaker}</strong>"
+                f"<p>{_paragraph(chat.get('message'))}</p></div>"
+            )
+        if messages:
+            ai_section = "<h2>AI 질문과 답변</h2>" + "".join(messages)
+
+    sections = [
+        ("탐구 질문", note.get("research_question")),
+        ("탐구 과정", note.get("process")),
+        ("탐구 결과", note.get("result")),
+        ("결론과 알게 된 점", note.get("conclusion")),
+        ("다음 연구 계획", note.get("next_plan")),
+    ]
+    body = "".join(
+        f"<h2>{title}</h2><div class='content'>{_paragraph(value)}</div>"
+        for title, value in sections
+    )
+    created_at = datetime.now().strftime("%Y-%m-%d")
+
+    return f"""<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{html.escape(note.get('title') or '연구노트')}</title>
+<style>
+body {{ max-width: 820px; margin: 40px auto; padding: 0 24px; color: #24324a;
+       font-family: Arial, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }}
+header {{ padding: 28px; border-radius: 22px; background: #eef9ef; border: 1px solid #d7ecd9; }}
+h1 {{ margin: 0 0 8px; color: #237a3b; }}
+h2 {{ margin-top: 32px; color: #315caa; font-size: 1.15rem; }}
+.content, .chat {{ padding: 18px; border-radius: 14px; background: #f8fafc; }}
+.chat {{ margin: 10px 0; }} .chat p {{ margin-bottom: 0; }}
+.empty {{ color: #8a94a6; }} .meta {{ color: #667085; }}
+@media print {{ body {{ margin: 0 auto; }} }}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔬 {html.escape(note.get('title') or '연구노트')}</h1>
+  <div class="meta">연구주제: {html.escape(topic.get('name') or '')} · 내려받은 날짜: {created_at}</div>
+</header>
+{body}
+{ai_section}
+</body>
+</html>""".encode("utf-8")
+
+
+def render_note_download(note, topic):
+    section("연구노트 내려받기", "📥")
+    st.caption("저장된 최신 연구 내용과 선택한 AI 대화를 문서로 내려받습니다.")
+    filename = f"{_safe_download_name(note.get('title') or topic['name'])}.html"
+    st.download_button(
+        "📥 연구노트 문서 내려받기",
+        data=build_research_note_html(note, topic),
+        file_name=filename,
+        mime="text/html; charset=utf-8",
+        use_container_width=True,
+        key=f"download_research_note_{note['id']}"
+    )
+    st.caption("파일을 브라우저에서 연 뒤 인쇄 → PDF로 저장할 수도 있습니다.")
+
+
 def render_portfolio():
     notes = [
         note for note in db.get_research_notes()
@@ -300,6 +383,7 @@ def render():
     note = render_note_form(topic)
 
     if note:
+        render_note_download(note, topic)
         upload_files(note, selected_id)
         render_saved_attachments(note)
     else:
