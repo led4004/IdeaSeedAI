@@ -19,7 +19,8 @@ from auth import initialize_auth, is_logged_in, render_login
 from tabs import (
     tree,
     mentor,
-    failure
+    failure,
+    research
 )
 
 
@@ -153,6 +154,20 @@ elif st.session_state.page == "failure":
 
     failure.render()
 
+    footer()
+
+
+# ==========================================================
+# RESEARCH NOTE PAGE
+# ==========================================================
+
+elif st.session_state.page == "research":
+
+    if st.button("⬅ 홈으로", use_container_width=False):
+        st.session_state.page = "home"
+        st.rerun()
+
+    research.render()
     footer()
 
 

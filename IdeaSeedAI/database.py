@@ -1,4 +1,8 @@
 import streamlit as st
+import mimetypes
+import re
+import uuid
+from pathlib import Path
 
 
 BADGES = [
@@ -360,6 +364,129 @@ class Database:
                 "average": self.average_score(), "profile": self.get_profile(),
                 "level_info": self.get_level_info(), "badges": self.get_badges()}
 
+    # =================================================
+    # Research Notes
+    # =================================================
+
+    def get_research_note(self, topic_id):
+        return self._one(self._client().table("research_notes").select("*").eq(
+            "topic_id", topic_id
+        ).eq("user_id", self._uid()).limit(1).execute())
+
+    def get_research_notes(self):
+        rows = self._client().table("research_notes").select(
+            "*, topics(name, fruit, score)"
+        ).eq("user_id", self._uid()).order("updated_at", desc=True).execute().data
+        for row in rows:
+            topic = row.pop("topics", None) or {}
+            row["topic_name"] = topic.get("name", "삭제된 연구")
+            row["fruit"] = topic.get("fruit", "🌱")
+            row["score"] = topic.get("score", 0)
+        return rows
+
+    def save_research_note(self, topic_id, data):
+        if not self.get_topic(topic_id):
+            return None
+        payload = {
+            "user_id": self._uid(),
+            "topic_id": topic_id,
+            "title": (data.get("title") or "연구노트").strip()[:120],
+            "research_question": (data.get("research_question") or "").strip(),
+            "process": (data.get("process") or "").strip(),
+            "result": (data.get("result") or "").strip(),
+            "conclusion": (data.get("conclusion") or "").strip(),
+            "next_plan": (data.get("next_plan") or "").strip(),
+            "include_ai": bool(data.get("include_ai", True)),
+            "is_public": bool(data.get("is_public", False)),
+            "is_portfolio": bool(data.get("is_portfolio", False)),
+            "updated_at": "now()"
+        }
+        existing = self.get_research_note(topic_id)
+        if existing:
+            payload.pop("user_id", None)
+            payload.pop("topic_id", None)
+            payload.pop("updated_at", None)
+            response = self._client().table("research_notes").update(payload).eq(
+                "id", existing["id"]
+            ).eq("user_id", self._uid()).execute()
+        else:
+            payload.pop("updated_at", None)
+            response = self._client().table("research_notes").insert(payload).execute()
+        return self._one(response)
+
+    def delete_research_note(self, note_id):
+        attachments = self.get_research_attachments(note_id)
+        for attachment in attachments:
+            try:
+                self._client().storage.from_("research-files").remove([
+                    attachment["storage_path"]
+                ])
+            except Exception:
+                pass
+        self._client().table("research_notes").delete().eq(
+            "id", note_id
+        ).eq("user_id", self._uid()).execute()
+
+    @staticmethod
+    def _safe_filename(filename):
+        name = Path(filename or "file").name
+        name = re.sub(r"[^A-Za-z0-9가-힣._-]", "_", name)
+        return name[:100] or "file"
+
+    def upload_research_attachment(self, note_id, topic_id, filename, content,
+                                   content_type=None, attachment_type="file"):
+        note = self.get_research_note(topic_id)
+        if not note or int(note["id"]) != int(note_id):
+            return None
+        safe_name = self._safe_filename(filename)
+        storage_path = f"{self._uid()}/{topic_id}/{uuid.uuid4().hex}_{safe_name}"
+        mime = content_type or mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
+        self._client().storage.from_("research-files").upload(
+            storage_path,
+            content,
+            {"content-type": mime, "upsert": "false"}
+        )
+        response = self._client().table("research_attachments").insert({
+            "note_id": note_id,
+            "user_id": self._uid(),
+            "storage_path": storage_path,
+            "original_name": safe_name,
+            "content_type": mime,
+            "attachment_type": attachment_type
+        }).execute()
+        return self._one(response)
+
+    def get_research_attachments(self, note_id, with_urls=False):
+        rows = self._client().table("research_attachments").select("*").eq(
+            "note_id", note_id
+        ).order("created_at").execute().data
+        if with_urls:
+            for row in rows:
+                try:
+                    signed = self._client().storage.from_(
+                        "research-files"
+                    ).create_signed_url(row["storage_path"], 3600)
+                    row["url"] = (
+                        signed.get("signedURL")
+                        or signed.get("signedUrl")
+                        or signed.get("signed_url")
+                    )
+                except Exception:
+                    row["url"] = None
+        return rows
+
+    def delete_research_attachment(self, attachment_id):
+        row = self._one(self._client().table("research_attachments").select("*").eq(
+            "id", attachment_id
+        ).eq("user_id", self._uid()).limit(1).execute())
+        if not row:
+            return False
+        self._client().storage.from_("research-files").remove([row["storage_path"]])
+        self._client().table("research_attachments").delete().eq(
+            "id", attachment_id
+        ).eq("user_id", self._uid()).execute()
+        return True
+
     def publish_topic(self, topic_id):
         topic = self.get_topic(topic_id)
         if not topic or int(topic["score"]) < 4:
@@ -414,10 +541,21 @@ class Database:
             "topic_id", topic_id
         ).order("created_at").execute().data
 
+        research_note = self._one(self._client().table("research_notes").select("*").eq(
+            "topic_id", topic_id
+        ).eq("is_public", True).limit(1).execute())
+        research_attachments = []
+        if research_note:
+            research_attachments = self.get_research_attachments(
+                research_note["id"], with_urls=True
+            )
+
         return {
             "topic": topic,
             "failures": failures,
-            "chats": chats
+            "chats": chats,
+            "research_note": research_note,
+            "research_attachments": research_attachments
         }
 
     def toggle_like(self, post_id):

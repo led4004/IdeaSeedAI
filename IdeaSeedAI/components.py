@@ -189,6 +189,14 @@ def home_menu():
             st.session_state.page = "failure"
             st.rerun()
 
+        if st.button(
+            "🔬 연구노트",
+            key="menu_research",
+            use_container_width=True
+        ):
+            st.session_state.page = "research"
+            st.rerun()
+
     with c2:
 
         if st.button(
@@ -1076,6 +1084,39 @@ def market_page():
             st.progress(min(max(detail_score / 4, 0.0), 1.0))
             st.write(f"현재 성장 단계: **{detail_score}단계 · {stage_names[detail_score]}**")
 
+            research_note = details.get("research_note")
+            if research_note:
+                st.markdown("#### 🔬 연구노트")
+                st.markdown(f"**{escape(str(research_note['title']))}**")
+                note_sections = [
+                    ("❓ 탐구 질문", "research_question"),
+                    ("🛠️ 탐구 과정", "process"),
+                    ("📊 탐구 결과", "result"),
+                    ("✅ 결론과 알게 된 점", "conclusion"),
+                    ("🚀 다음 연구 계획", "next_plan")
+                ]
+                for label, field in note_sections:
+                    value = research_note.get(field)
+                    if value:
+                        st.markdown(f"**{label}**")
+                        st.write(value)
+
+                note_attachments = details.get("research_attachments", [])
+                if note_attachments:
+                    st.markdown("**📎 연구노트 첨부 자료**")
+                    attachment_cols = st.columns(3)
+                    for attachment_index, attachment in enumerate(note_attachments):
+                        with attachment_cols[attachment_index % 3]:
+                            url = attachment.get("url")
+                            if attachment["attachment_type"] in ("photo", "drawing") and url:
+                                st.image(url, use_container_width=True)
+                            if url:
+                                st.link_button(
+                                    attachment["original_name"],
+                                    url,
+                                    use_container_width=True
+                                )
+
             st.markdown("#### 📕 실패노트")
             if not details["failures"]:
                 st.caption("공유된 실패노트가 없습니다.")
@@ -1289,6 +1330,14 @@ color:#6B7280;
             use_container_width=True
         ):
             st.session_state.page = "failure"
+            st.rerun()
+
+        if st.button(
+            "🔬 연구노트",
+            key="sidebar_research",
+            use_container_width=True
+        ):
+            st.session_state.page = "research"
             st.rerun()
 
         if st.button(
