@@ -1,7 +1,9 @@
+import base64
 import html
 import io
 import re
 from datetime import datetime
+from urllib.request import Request, urlopen
 
 import streamlit as st
 from PIL import Image
@@ -257,6 +259,38 @@ def _paragraph(value):
     return text or "<span class=\"empty\">작성된 내용이 없습니다.</span>"
 
 
+def _embedded_attachments(note_id):
+    image_cards = []
+    file_items = []
+
+    for attachment in db.get_research_attachments(note_id, with_urls=True):
+        name = html.escape(attachment.get("original_name") or "첨부자료")
+        url = attachment.get("url")
+        kind = attachment.get("attachment_type")
+        content_type = attachment.get("content_type") or "application/octet-stream"
+
+        if kind in ("photo", "drawing") and url:
+            try:
+                request = Request(url, headers={"User-Agent": "IdeaSeedAI/1.0"})
+                with urlopen(request, timeout=20) as response:
+                    encoded = base64.b64encode(response.read()).decode("ascii")
+                image_cards.append(
+                    f"<figure><img src='data:{html.escape(content_type)};base64,{encoded}' "
+                    f"alt='{name}'><figcaption>{name}</figcaption></figure>"
+                )
+            except Exception:
+                file_items.append(f"<li>{name} (이미지를 불러오지 못했습니다.)</li>")
+        else:
+            file_items.append(f"<li>{name}</li>")
+
+    parts = []
+    if image_cards:
+        parts.append("<h2>사진과 그림</h2><div class='gallery'>" + "".join(image_cards) + "</div>")
+    if file_items:
+        parts.append("<h2>첨부파일 목록</h2><ul>" + "".join(file_items) + "</ul>")
+    return "".join(parts)
+
+
 def build_research_note_html(note, topic):
     ai_section = ""
     if note.get("include_ai"):
@@ -282,6 +316,7 @@ def build_research_note_html(note, topic):
         for title, value in sections
     )
     created_at = datetime.now().strftime("%Y-%m-%d")
+    attachment_section = _embedded_attachments(note["id"])
 
     return f"""<!doctype html>
 <html lang="ko">
@@ -297,8 +332,13 @@ h1 {{ margin: 0 0 8px; color: #237a3b; }}
 h2 {{ margin-top: 32px; color: #315caa; font-size: 1.15rem; }}
 .content, .chat {{ padding: 18px; border-radius: 14px; background: #f8fafc; }}
 .chat {{ margin: 10px 0; }} .chat p {{ margin-bottom: 0; }}
+.gallery {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }}
+figure {{ margin: 0; padding: 10px; border: 1px solid #e2e8f0; border-radius: 14px; }}
+figure img {{ display: block; width: 100%; height: auto; border-radius: 10px; }}
+figcaption {{ margin-top: 8px; color: #667085; font-size: .9rem; word-break: break-all; }}
 .empty {{ color: #8a94a6; }} .meta {{ color: #667085; }}
-@media print {{ body {{ margin: 0 auto; }} }}
+@media print {{ body {{ margin: 0 auto; }} figure {{ break-inside: avoid; }} }}
+@media (max-width: 600px) {{ .gallery {{ grid-template-columns: 1fr; }} }}
 </style>
 </head>
 <body>
@@ -308,13 +348,14 @@ h2 {{ margin-top: 32px; color: #315caa; font-size: 1.15rem; }}
 </header>
 {body}
 {ai_section}
+{attachment_section}
 </body>
 </html>""".encode("utf-8")
 
 
 def render_note_download(note, topic):
     section("연구노트 내려받기", "📥")
-    st.caption("저장된 최신 연구 내용과 선택한 AI 대화를 문서로 내려받습니다.")
+    st.caption("저장된 최신 연구 내용, AI 대화, 사진과 그림을 문서 하나로 내려받습니다.")
     filename = f"{_safe_download_name(note.get('title') or topic['name'])}.html"
     st.download_button(
         "📥 연구노트 문서 내려받기",
