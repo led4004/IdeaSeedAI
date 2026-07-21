@@ -20,7 +20,8 @@ from tabs import (
     tree,
     mentor,
     failure,
-    research
+    research,
+    workflow
 )
 
 
@@ -182,6 +183,20 @@ elif st.session_state.page == "market":
         st.rerun()
 
     market_page()
+    footer()
+
+
+# ==========================================================
+# IDEA WORKFLOW PAGES
+# ==========================================================
+
+elif st.session_state.page in ("seeds", "timeline", "evaluation", "portfolio"):
+
+    if st.button("⬅ 홈으로", use_container_width=False):
+        st.session_state.page = "home"
+        st.rerun()
+
+    workflow.render(st.session_state.page)
     footer()
 
 

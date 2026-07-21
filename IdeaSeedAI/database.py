@@ -3,6 +3,7 @@ import mimetypes
 import re
 import uuid
 from pathlib import Path
+from datetime import datetime, timezone
 
 
 BADGES = [
@@ -107,9 +108,12 @@ class Database:
         ).eq("name", name).limit(1).execute().data
         if exists:
             return False
-        self._client().table("topics").insert({
+        response = self._client().table("topics").insert({
             "user_id": self._uid(), "name": name, "fruit": fruit
         }).execute()
+        topic = self._one(response)
+        if topic:
+            self.add_timeline_event(topic["id"], "seed_planted", "연구씨앗을 심었습니다.")
         self._increment_profile("total_topics")
         self.add_exp(10)
         self._auto_complete_mission("topic")
@@ -206,6 +210,7 @@ class Database:
         self.add_exp(5)
         self._auto_complete_mission("chat")
         if role == "user":
+            self.add_timeline_event(topic_id, "ai_question", message[:180])
             self.refresh_topic_growth(topic_id)
         return True
 
@@ -246,6 +251,7 @@ class Database:
         self.add_exp(20)
         self._auto_complete_mission("failure")
         self.refresh_topic_growth(topic_id)
+        self.add_timeline_event(topic_id, "failure", f"실패·개선노트: {title}")
         return True
 
     def get_failures(self):
@@ -412,7 +418,138 @@ class Database:
         else:
             payload.pop("updated_at", None)
             response = self._client().table("research_notes").insert(payload).execute()
+        saved = self._one(response)
+        self.add_timeline_event(
+            topic_id,
+            "note_updated" if existing else "note_created",
+            "연구노트를 수정했습니다." if existing else "연구노트를 만들었습니다."
+        )
+        return saved
+
+    # =================================================
+    # Idea Seeds / Timeline / Evaluation
+    # =================================================
+
+    def add_idea_seed(self, idea, category="생활", attachment_name="",
+                      attachment_bytes=None, content_type=""):
+        idea = (idea or "").strip()[:100]
+        if not idea:
+            return None
+        storage_path = ""
+        if attachment_name and attachment_bytes:
+            safe_name = self._safe_filename(attachment_name)
+            storage_path = f"{self._uid()}/{uuid.uuid4().hex}_{safe_name}"
+            self._client().storage.from_("seed-files").upload(
+                storage_path, attachment_bytes,
+                {"content-type": content_type or "application/octet-stream", "upsert": "false"}
+            )
+        response = self._client().table("idea_seeds").insert({
+            "user_id": self._uid(), "idea": idea,
+            "category": category, "attachment_name": attachment_name or "",
+            "storage_path": storage_path, "content_type": content_type or ""
+        }).execute()
         return self._one(response)
+
+    def get_idea_seeds(self, status="all", keyword="", oldest=False):
+        query = self._client().table("idea_seeds").select("*").eq(
+            "user_id", self._uid()
+        )
+        if status != "all":
+            query = query.eq("status", status)
+        if keyword.strip():
+            query = query.ilike("idea", f"%{keyword.strip()}%")
+        rows = query.order("created_at", desc=not oldest).execute().data
+        for row in rows:
+            row["attachment_url"] = None
+            if row.get("storage_path"):
+                try:
+                    signed = self._client().storage.from_("seed-files").create_signed_url(
+                        row["storage_path"], 3600
+                    )
+                    row["attachment_url"] = signed.get("signedURL") or signed.get("signedUrl")
+                except Exception:
+                    pass
+        return rows
+
+    def update_idea_seed(self, seed_id, idea, category, favorite=False):
+        self._client().table("idea_seeds").update({
+            "idea": idea.strip()[:100], "category": category,
+            "is_favorite": bool(favorite)
+        }).eq("id", seed_id).eq("user_id", self._uid()).execute()
+
+    def delete_idea_seed(self, seed_id):
+        seed = self._one(self._client().table("idea_seeds").select("*").eq(
+            "id", seed_id
+        ).eq("user_id", self._uid()).limit(1).execute())
+        if seed and seed.get("storage_path"):
+            self._client().storage.from_("seed-files").remove([seed["storage_path"]])
+        self._client().table("idea_seeds").delete().eq(
+            "id", seed_id
+        ).eq("user_id", self._uid()).execute()
+
+    def plant_idea_seed(self, seed_id, fruit, reason, problem, first_solution):
+        seed = self._one(self._client().table("idea_seeds").select("*").eq(
+            "id", seed_id
+        ).eq("user_id", self._uid()).limit(1).execute())
+        if not seed or seed.get("status") == "research":
+            return None
+        if not self.add_topic(seed["idea"], fruit):
+            return None
+        topic = self._one(self._client().table("topics").select("*").eq(
+            "user_id", self._uid()
+        ).eq("name", seed["idea"]).limit(1).execute())
+        memo = "\n".join([
+            f"탐구 이유: {reason.strip()}", f"해결 문제: {problem.strip()}",
+            f"첫 해결방법: {first_solution.strip()}"
+        ])
+        self.update_topic_memo(topic["id"], memo)
+        self._client().table("idea_seeds").update({
+            "status": "research", "topic_id": topic["id"],
+            "planted_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", seed_id).eq("user_id", self._uid()).execute()
+        self.add_timeline_event(topic["id"], "seed_detail", "탐구 이유와 해결 방법을 정리했습니다.")
+        return topic
+
+    def add_timeline_event(self, topic_id, event_type, content, attachment_name=""):
+        try:
+            self._client().table("research_timeline").insert({
+                "user_id": self._uid(), "topic_id": topic_id,
+                "event_type": event_type, "content": (content or "")[:1000],
+                "attachment_name": attachment_name or ""
+            }).execute()
+            return True
+        except Exception:
+            return False
+
+    def get_timeline(self, topic_id):
+        return self._client().table("research_timeline").select("*").eq(
+            "user_id", self._uid()
+        ).eq("topic_id", topic_id).order("created_at").execute().data
+
+    def save_evaluation(self, topic_id, data):
+        payload = {
+            "user_id": self._uid(), "topic_id": topic_id,
+            "similar_ideas": data.get("similar_ideas", ""),
+            "patent_reference": data.get("patent_reference", ""),
+            "technology": data.get("technology", ""),
+            "strengths": data.get("strengths", ""),
+            "weaknesses": data.get("weaknesses", ""),
+            "feasibility": int(data.get("feasibility", 3)),
+            "creativity": int(data.get("creativity", 3)),
+            "improvement": data.get("improvement", ""),
+            "ai_summary": data.get("ai_summary", ""),
+            "total_score": int(data.get("total_score", 60))
+        }
+        response = self._client().table("idea_evaluations").upsert(
+            payload, on_conflict="user_id,topic_id"
+        ).execute()
+        self.add_timeline_event(topic_id, "evaluation", f"아이디어 발전 평가: {payload['total_score']}점")
+        return self._one(response)
+
+    def get_evaluation(self, topic_id):
+        return self._one(self._client().table("idea_evaluations").select("*").eq(
+            "user_id", self._uid()
+        ).eq("topic_id", topic_id).limit(1).execute())
 
     def delete_research_note(self, note_id):
         attachments = self.get_research_attachments(note_id)

@@ -174,6 +174,14 @@ def home_menu():
     with c1:
 
         if st.button(
+            "🌰 씨앗보관함",
+            key="menu_seeds",
+            use_container_width=True
+        ):
+            st.session_state.page = "seeds"
+            st.rerun()
+
+        if st.button(
             "🌳 성장나무",
             key="menu_tree",
             use_container_width=True
@@ -197,6 +205,14 @@ def home_menu():
             st.session_state.page = "research"
             st.rerun()
 
+        if st.button(
+            "📅 탐구로그",
+            key="menu_timeline",
+            use_container_width=True
+        ):
+            st.session_state.page = "timeline"
+            st.rerun()
+
     with c2:
 
         if st.button(
@@ -213,6 +229,22 @@ def home_menu():
             use_container_width=True
         ):
             st.session_state.page = "market"
+            st.rerun()
+
+        if st.button(
+            "🔍 발전센터",
+            key="menu_evaluation",
+            use_container_width=True
+        ):
+            st.session_state.page = "evaluation"
+            st.rerun()
+
+        if st.button(
+            "📁 포트폴리오",
+            key="menu_portfolio",
+            use_container_width=True
+        ):
+            st.session_state.page = "portfolio"
             st.rerun()
 
 # ==========================================================
@@ -1309,6 +1341,14 @@ color:#6B7280;
             st.rerun()
 
         if st.button(
+            "🌰 씨앗보관함",
+            key="sidebar_seeds",
+            use_container_width=True
+        ):
+            st.session_state.page = "seeds"
+            st.rerun()
+
+        if st.button(
             "🌳 성장나무",
             key="sidebar_tree",
             use_container_width=True
@@ -1338,6 +1378,30 @@ color:#6B7280;
             use_container_width=True
         ):
             st.session_state.page = "research"
+            st.rerun()
+
+        if st.button(
+            "📅 탐구로그",
+            key="sidebar_timeline",
+            use_container_width=True
+        ):
+            st.session_state.page = "timeline"
+            st.rerun()
+
+        if st.button(
+            "🔍 발전센터",
+            key="sidebar_evaluation",
+            use_container_width=True
+        ):
+            st.session_state.page = "evaluation"
+            st.rerun()
+
+        if st.button(
+            "📁 포트폴리오",
+            key="sidebar_portfolio",
+            use_container_width=True
+        ):
+            st.session_state.page = "portfolio"
             st.rerun()
 
         if st.button(
