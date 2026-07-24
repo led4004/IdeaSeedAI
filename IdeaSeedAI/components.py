@@ -132,10 +132,40 @@ def today_card():
 
     profile = db.get_profile()
 
+    html("""
+<style>
+div[data-testid="stButton"] > button[kind="primary"] {
+    min-height: 76px;
+    padding: 16px 24px;
+    border: 0;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #087F5B 0%, #12A87A 52%, #25C997 100%);
+    color: #FFFFFF;
+    font-size: 21px;
+    font-weight: 900;
+    letter-spacing: -0.3px;
+    box-shadow: 0 9px 20px rgba(8, 127, 91, 0.28);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #066B4D 0%, #0D946A 52%, #20B987 100%);
+    color: #FFFFFF;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(8, 127, 91, 0.34);
+}
+
+div[data-testid="stButton"] > button[kind="primary"]:active {
+    transform: translateY(0);
+}
+</style>
+""")
+
     if st.button(
         "🌱 오늘도 연구를 시작해볼까요?",
         key="today_start_research",
-        use_container_width=True
+        use_container_width=True,
+        type="primary"
     ):
         st.session_state.page = "seeds"
         st.rerun()
