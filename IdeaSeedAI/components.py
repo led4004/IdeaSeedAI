@@ -85,7 +85,7 @@ def render_header():
 
 <h1>
 
-🌱 Idea Seed AI
+🌱 아이디어 새싹 AI
 
 </h1>
 
@@ -132,27 +132,31 @@ def today_card():
 
     profile = db.get_profile()
 
+    if st.button(
+        "🌱 오늘도 연구를 시작해볼까요?",
+        key="today_start_research",
+        use_container_width=True
+    ):
+        st.session_state.page = "seeds"
+        st.rerun()
+
     html(f"""
 
 <div class="success-card">
 
-<h3 style="margin-top:0">
+<p style="
+margin:0;
+font-size:13px;
+line-height:1.25;
+text-align:center;
+color:#6B7280;
+">
 
-🌱 오늘도 연구를 시작해볼까요?
-
-</h3>
-
-<p>
-
-연구주제 <b>{profile['total_topics']}</b>개
-
-&nbsp;&nbsp;&nbsp;
-
-실패노트 <b>{profile['total_failures']}</b>개
-
-&nbsp;&nbsp;&nbsp;
-
-AI 대화 <b>{profile['total_chats']}</b>회
+연구주제 <b>{profile['total_topics']}</b>
+&nbsp;&nbsp;
+실패노트 <b>{profile['total_failures']}</b>
+&nbsp;&nbsp;
+AI 대화 <b>{profile['total_chats']}</b>
 
 </p>
 

@@ -31,7 +31,7 @@ from tabs import (
 
 st.set_page_config(
 
-    page_title="🌱 Idea Seed AI",
+    page_title="🌱 아이디어 새싹 AI",
 
     page_icon="🌱",
 
