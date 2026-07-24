@@ -135,17 +135,25 @@ def today_card():
     html("""
 <style>
 div[data-testid="stButton"] > button[kind="primary"] {
-    min-height: 100px;
-    padding: 25px 24px;
+    min-height: 76px;
+    padding: 16px 24px;
     border: 0;
     border-radius: 18px;
     background: linear-gradient(135deg, #087F5B 0%, #12A87A 52%, #25C997 100%);
     color: #FFFFFF;
-    font-size: 30px;
     font-weight: 900;
     letter-spacing: -0.3px;
     box-shadow: 0 9px 20px rgba(8, 127, 91, 0.28);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+div[data-testid="stButton"] button[kind="primary"] p,
+div[data-testid="stButton"] button[data-testid="stBaseButton-primary"] p {
+    margin: 0;
+    color: #FFFFFF !important;
+    font-size: 30px !important;
+    font-weight: 900 !important;
+    line-height: 1.2 !important;
 }
 
 div[data-testid="stButton"] > button[kind="primary"]:hover {
@@ -169,6 +177,19 @@ div[data-testid="stButton"] > button[kind="primary"]:active {
     ):
         st.session_state.page = "seeds"
         st.rerun()
+
+    html("""
+<div style="
+margin-top:7px;
+margin-bottom:10px;
+text-align:center;
+font-size:15px;
+font-weight:700;
+color:#087F5B;
+">
+버튼을 눌러서 시작해요!
+</div>
+""")
 
     html(f"""
 
