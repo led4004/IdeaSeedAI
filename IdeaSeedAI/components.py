@@ -135,8 +135,8 @@ def today_card():
     html("""
 <style>
 div[data-testid="stButton"] > button[kind="primary"] {
-    min-height: 76px;
-    padding: 16px 24px;
+    min-height: 100px;
+    padding: 25px 24px;
     border: 0;
     border-radius: 18px;
     background: linear-gradient(135deg, #087F5B 0%, #12A87A 52%, #25C997 100%);
