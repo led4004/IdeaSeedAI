@@ -141,7 +141,7 @@ div[data-testid="stButton"] > button[kind="primary"] {
     border-radius: 18px;
     background: linear-gradient(135deg, #087F5B 0%, #12A87A 52%, #25C997 100%);
     color: #FFFFFF;
-    font-size: 21px;
+    font-size: 30px;
     font-weight: 900;
     letter-spacing: -0.3px;
     box-shadow: 0 9px 20px rgba(8, 127, 91, 0.28);
